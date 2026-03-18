@@ -1,0 +1,10 @@
+# Secret Environment Variables
+.env
+.venv
+
+# Python Cache (keeps your repo clean)
+__pycache__/
+*.pyc
+
+# Local Database (you don't want to upload your local test data)
+db.sqlite3
