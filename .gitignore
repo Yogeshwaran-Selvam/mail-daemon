@@ -1,11 +1,39 @@
-# Secret Environment Variables
+# ----------------------
+# Secrets & Environment
+# ----------------------
 .env
-.venv
-staticfiles
+.venv/
+venv/
+env/
 
-# Python Cache (keeps your repo clean)
-__pycache__/
-*.pyc
-
-# Local Database (you don't want to upload your local test data)
+# ----------------------
+# Django
+# ----------------------
 db.sqlite3
+staticfiles/
+
+# ----------------------
+# Python Cache
+# ----------------------
+__pycache__/
+*.py[cod]
+*$py.class
+
+# ----------------------
+# Logs
+# ----------------------
+*.log
+
+# ----------------------
+# OS / Editor
+# ----------------------
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# ----------------------
+# Build / Misc
+# ----------------------
+*.swp
+*.swo
