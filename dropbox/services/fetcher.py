@@ -1,4 +1,6 @@
 import imaplib
+import re
+from email import message_from_bytes
 import email
 from email.header import decode_header
 import os
@@ -45,43 +47,65 @@ def fetch_unread_emails():
     for e_id in email_ids:
         print(f"Downloading email ID {e_id.decode()}...")
         
+        gmail_hash_id = ""
+        subject = "(No Subject)"
+        sender = "Unknown"
+        body = ""
+        
         try:
-            res, msg_data = mail.fetch(e_id, '(BODY.PEEK[])')
+            res, msg_data = mail.fetch(e_id, '(RFC822 X-GM-THRID)')
             
             for response_part in msg_data:
                 if isinstance(response_part, tuple):
+                    # 1. Extract the Gmail Hash ID from the metadata (response_part[0])
+                    metadata = response_part[0].decode()
+                    thrid_match = re.search(r'X-GM-THRID\s+(\d+)', metadata)
+                    if thrid_match:
+                        try:
+                            decimal_id = int(thrid_match.group(1))
+                            gmail_hash_id = hex(decimal_id)[2:] 
+                        except:
+                            gmail_hash_id = ""
+                    # 2. Parse the actual email content (response_part[1])
                     msg = email.message_from_bytes(response_part[1])
                     
-                    subject, encoding = decode_header(msg["Subject"])[0]
-                    if isinstance(subject, bytes):
-                        subject = subject.decode(encoding if encoding else "utf-8")
+                    # Subject Decoding
+                    subj_header = msg.get("Subject")
+                    if subj_header:
+                        decoded = decode_header(subj_header)[0]
+                        subject, encoding = decoded
+                        if isinstance(subject, bytes):
+                            subject = subject.decode(encoding if encoding else "utf-8", errors="ignore")
                     
-                    sender = msg.get("From")
+                    sender = msg.get("From", "Unknown")
                     
-                    body = ""
+                    print(gmail_hash_id, sender)
+                    
+                    # Body Extraction
                     if msg.is_multipart():
                         for part in msg.walk():
                             if part.get_content_type() == "text/plain" and "attachment" not in str(part.get("Content-Disposition")):
-                                try:
-                                    body = part.get_payload(decode=True).decode()
-                                except:
-                                    pass
+                                payload = part.get_payload(decode=True)
+                                if payload:
+                                    body = payload.decode(errors="ignore")
+                                    break # Take the first text part found
                     else:
-                        body = msg.get_payload(decode=True).decode()
-                    
-                    extracted_emails.append({
-                        "id": e_id.decode(),
-                        "subject": subject,
-                        "sender": sender,
-                        "body": body[:2000]
-                    })
+                        payload = msg.get_payload(decode=True)
+                        if payload:
+                            body = payload.decode(errors="ignore")
+
+            # --- CRITICAL: Append OUTSIDE the response_part loop, but INSIDE the e_id loop ---
+            print(gmail_hash_id)
+            extracted_emails.append({
+                "id": e_id.decode(),
+                "gmail_hash": gmail_hash_id,
+                "subject": subject,
+                "sender": sender,
+                "body": body[:2000]
+            })
                     
         except Exception as e:
-            print(f"⚠️ Failed to download email {e_id.decode()}. Error: {e}")
-            # 2. GRACEFUL EXIT: If the connection dies, stop the loop immediately
-            if "eof" in str(e).lower() or "socket" in str(e).lower() or "abort" in str(e).lower():
-                print("🚨 Server closed connection early. Saving what we have...")
-                break
+            print(f"⚠️ Error processing email {e_id.decode()}: {e}")
             continue
 
     # 3. SAFE LOGOUT: Don't crash if the socket is already dead

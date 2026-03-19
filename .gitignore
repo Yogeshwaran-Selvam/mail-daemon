@@ -1,6 +1,7 @@
 # Secret Environment Variables
 .env
 .venv
+staticfiles
 
 # Python Cache (keeps your repo clean)
 __pycache__/

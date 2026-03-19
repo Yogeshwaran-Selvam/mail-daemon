@@ -35,6 +35,7 @@ def trigger_fetch(request):
         for mail, ai_data in zip(emails_to_process, ai_results):
             EmailMessage.objects.create(
                 message_id=mail['id'],
+                gmail_hash=mail['gmail_hash'],
                 sender=mail['sender'],
                 subject=mail['subject'],
                 summary=ai_data.get('summary', 'Failed to generate summary.'),
@@ -54,39 +55,23 @@ def trigger_fetch(request):
 def web_dashboard(request):
     """Renders the HTML dashboard with active emails."""
     # Fetch all emails that haven't been archived, newest first
-    emails = EmailMessage.objects.filter(is_archived=False).order_by('-created_at')
+    emails = EmailMessage.objects.order_by('-created_at')
     
     # Pass the emails into the HTML template
-    return render(request, 'dropbox/dashboard.html', {'emails': emails})
+    return render(request, 'dashboard.html', {'emails': emails})
 
 def web_archive_email(request, pk):
     """Archives an email from the web UI and reloads the page."""
     if request.method == "POST":
-        email = get_object_or_404(EmailMessage, pk=pk)
-        email.is_archived = True
-        email.save()
+        EmailMessage.objects.filter(pk=pk).delete()
     return redirect('web-dashboard')
 
 @api_view(['GET'])
 def get_emails(request):
     """Returns a JSON list of all active emails, newest first."""
     # Fetch all emails that haven't been deleted
-    emails = EmailMessage.objects.filter(is_archived=False).order_by('-created_at')
+    emails = EmailMessage.objects.order_by('-created_at')
     
     # Convert them to JSON
     serializer = EmailMessageSerializer(emails, many=True)
     return Response(serializer.data)
-
-@api_view(['DELETE'])
-def delete_email(request, pk):
-    """Archives an email in the DB so it no longer shows up in the app."""
-    try:
-        email = EmailMessage.objects.get(pk=pk)
-        email.is_archived = True
-        email.save()
-        
-        # NOTE: Later, we will add the IMAP logic here to actually move the email to the Gmail trash!
-        return Response({"status": "Email archived successfully."})
-    
-    except EmailMessage.DoesNotExist:
-        return Response({"error": "Email not found."}, status=404)

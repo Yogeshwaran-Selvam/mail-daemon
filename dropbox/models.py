@@ -11,7 +11,8 @@ class EmailMessage(models.Model):
     ]
 
     # Core Email Data
-    message_id = models.CharField(max_length=255, unique=True) # Prevents saving the same email twice
+    message_id = models.CharField(max_length=255, unique=True)
+    gmail_hash = models.CharField(max_length=100, blank=True, null=True)
     sender = models.CharField(max_length=255)
     subject = models.CharField(max_length=500)
     
@@ -21,7 +22,6 @@ class EmailMessage(models.Model):
     action_required = models.BooleanField(default=False)
     
     # App State Data
-    is_archived = models.BooleanField(default=False) # For when you swipe to delete in your app
     created_at = models.DateTimeField(auto_now_add=True) # Timestamps when it hit the DB
 
     def __str__(self):
