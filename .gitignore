@@ -37,3 +37,7 @@ Thumbs.db
 # ----------------------
 *.swp
 *.swo
+
+# Google OAuth Credentials
+credentials.json
+token.json

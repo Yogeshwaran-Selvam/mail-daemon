@@ -2,10 +2,12 @@ from django.http import JsonResponse
 from .models import EmailMessage
 from .services.fetcher import fetch_unread_emails
 from .services.ai_parser import summarize_emails_batch
+from .services.gmail_api import get_gmail_service
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from .serializers import EmailMessageSerializer
 from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib import messages
 
 def trigger_fetch(request):
     """The master function that fetches, summarizes, and saves emails."""
@@ -61,9 +63,30 @@ def web_dashboard(request):
     return render(request, 'dashboard.html', {'emails': emails})
 
 def web_archive_email(request, pk):
-    """Archives an email from the web UI and reloads the page."""
+    """Archives an email in Gmail AND deletes it from the local web UI."""
     if request.method == "POST":
-        EmailMessage.objects.filter(pk=pk).delete()
+        # 1. Grab the email from the database BEFORE deleting it
+        email = get_object_or_404(EmailMessage, pk=pk)
+        gmail_id = email.gmail_hash
+        
+        # 2. Tell Google to archive it
+        if gmail_id:
+            try:
+                service = get_gmail_service()
+                if service:
+                    # Remove the INBOX label to archive it in Gmail
+                    service.users().messages().modify(
+                        userId='me', 
+                        id=gmail_id, 
+                        body={'removeLabelIds': ['INBOX']}
+                    ).execute()
+                    print(f"Successfully archived {gmail_id} in Gmail!")
+            except Exception as e:
+                print(f"Failed to archive in Gmail: {e}")
+
+        # 3. Delete it from the Django dashboard
+        email.delete()
+        
     return redirect('web-dashboard')
 
 @api_view(['GET'])
